@@ -70,6 +70,8 @@ npm run dev                   # → http://localhost:5173
 
 Standalone file: `backend/src/queries/topFailures.sql`
 
+The query uses a deterministic secondary sort on `failure_category` so the top 3 categories stay stable even when counts are tied.
+
 ```sql
 SELECT
     c.customer_name,
@@ -86,7 +88,8 @@ GROUP BY
     c.customer_name,
     t.failure_category
 ORDER BY
-    ticket_count DESC
+  ticket_count DESC,
+  t.failure_category ASC
 LIMIT 3;
 ```
 
@@ -102,9 +105,12 @@ LIMIT 3;
 
 ## API
 
+Frontend and backend are decoupled via REST API communication.
+
 ### `GET /api/analytics/top-failures/:customer_id`
 
 **Populated response:**
+
 ```json
 {
   "customerId": 1,
@@ -118,6 +124,7 @@ LIMIT 3;
 ```
 
 **Empty response:**
+
 ```json
 {
   "customerId": 3,
@@ -127,6 +134,7 @@ LIMIT 3;
 ```
 
 ### `GET /api/health`
+
 ```json
 { "status": "ok", "db": "connected" }
 ```
@@ -135,13 +143,13 @@ LIMIT 3;
 
 ## Demo Customers
 
-| Customer      | ID | Widget State                     |
-|---------------|----|----------------------------------|
-| Acme Corp     | 1  | Populated — 3 failure categories |
-| Bright Labs   | 2  | Populated — 2 categories         |
-| ZenFlow       | 3  | Empty — all tickets resolved     |
-| NullCo        | 4  | Empty — no tickets at all        |
-| Titan Systems | 5  | Populated — 3-way tie            |
+| Customer      | ID  | Widget State                     |
+| ------------- | --- | -------------------------------- |
+| Acme Corp     | 1   | Populated — 3 failure categories |
+| Bright Labs   | 2   | Populated — 2 categories         |
+| ZenFlow       | 3   | Empty — all tickets resolved     |
+| NullCo        | 4   | Empty — no tickets at all        |
+| Titan Systems | 5   | Populated — 3-way tie            |
 
 Use the customer dropdown in the UI to switch between states.
 
@@ -149,9 +157,41 @@ Use the customer dropdown in the UI to switch between states.
 
 ## Widget States
 
-| State       | Trigger                          | Behaviour                                                                 |
-|-------------|----------------------------------|---------------------------------------------------------------------------|
-| **Loading** | Data is being fetched            | Animated skeleton bars                                                    |
-| **Populated** | `data.length > 0`             | Horizontal bar chart with rank labels, gradient fills, animated growth    |
-| **Empty**   | `data.length === 0`             | "No failure patterns detected — this customer is in great shape"          |
-| **Error**   | Network/server failure           | Error message with retry button                                           |
+| State         | Trigger                | Behaviour                                                              |
+| ------------- | ---------------------- | ---------------------------------------------------------------------- |
+| **Loading**   | Data is being fetched  | Animated skeleton bars                                                 |
+| **Populated** | `data.length > 0`      | Horizontal bar chart with rank labels, gradient fills, animated growth |
+| **Empty**     | `data.length === 0`    | "No failure patterns detected — this customer is in great shape"       |
+| **Error**     | Network/server failure | Error message with retry button                                        |
+
+The UI also includes a **View SQL** modal so reviewers can inspect the query optimisation approach directly from the frontend.
+
+---
+
+## Screenshots
+
+The captured screenshots below show the populated, empty, and SQL-review states used in the submission. The loading skeleton is implemented in the widget and is documented above.
+
+### Populated state: Titan Systems
+
+![Top Failure Patterns populated state for Titan Systems](screenshots/populated-state-titan-systems.png)
+
+This capture shows the highest-volume customer view with a tied top-3 ranking, demonstrating that the query still returns a stable ordered result.
+
+### Populated state: Acme Corp
+
+![Top Failure Patterns populated state for Acme Corp](screenshots/populated-state-acme-corp.png)
+
+This capture shows a normal populated state with three distinct failure categories and their ticket counts rendered as horizontal bars.
+
+### Empty state: ZenFlow
+
+![Top Failure Patterns empty state for ZenFlow](screenshots/empty-state-zenflow.png)
+
+This capture shows the empty state message for a customer with no unresolved failure patterns, confirming the widget handles the zero-data case cleanly.
+
+### SQL modal
+
+![Top Failure Patterns SQL modal](screenshots/sql-modal.png)
+
+This capture shows the raw SQL review modal, which lets reviewers inspect the optimisation approach directly from the UI.
